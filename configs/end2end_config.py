@@ -1,8 +1,8 @@
 cfg = {
     'detector': {
         'model_path': 'models/onnx/yolov5n-0.5.onnx',
-        'backend': 'onnxruntime',
-        'device': 'cuda',
+        'engine': 'onnxruntime',
+        'provider': 'openvino',
         'num_threads': 1,
         'input_size': (640, 384),
         'normalization': {
@@ -17,10 +17,12 @@ cfg = {
 
     'landmark': {
         'model_path': 'models/onnx/kps_student.onnx',
-        'backend': 'onnxruntime',
-        'device': 'cuda',
+        'engine': 'onnxruntime',
+        'provider': 'openvino',
         'num_threads': 1,
         'input_size': (256, 256),
+
+        
         'extend': {
             'square': True,
             'side': 'width',  # choices = ['width', 'height', 'max', 'min']
@@ -35,8 +37,8 @@ cfg = {
 
     'recognizer': {
         'model_path': 'models/onnx/mobilefacenet.onnx',
-        'backend': 'onnxruntime',
-        'device': 'cpu',
+        'engine': 'onnxruntime',
+        'provider': 'openvino',
         'input_size': (112, 112),
         'extend': {
             'square': False,

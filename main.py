@@ -42,13 +42,13 @@ def predict_video(video_path_or_cam, detector, lmk_model):
         duration = time.time() - start
         fps = 1 / duration
         cv2.putText(dst, f"fps: {fps:.0f}", (20, 20), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), thickness=2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
         cv2.putText(dst, f"det: {latency['det']:.0f}", (20, 50), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), thickness=2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
         cv2.putText(dst, f"lmk: {latency['lmk']:.0f}", (20, 80), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), thickness=2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
         cv2.putText(dst, f"cnt: {cnt}", (20, 110), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), thickness=2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
 
         cv2.namedWindow("capture", 0)
         cv2.imshow("capture", dst)

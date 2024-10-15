@@ -1,25 +1,16 @@
-import onnxruntime as ort
-
+from .create_session import create_session
 from ..base_landmark import BaseLandmark
+
 
 
 class PeppaPigOnnxLandmark(BaseLandmark):
     def __init__(self, landmark_config):
         super(PeppaPigOnnxLandmark, self).__init__(landmark_config)
         
-        device = landmark_config['device']
-        assert device == 'cpu' or device == 'cuda'
-        if device == 'cuda':
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        else:
-            providers = [ 'CPUExecutionProvider' ]
-
-        sess_options = ort.SessionOptions()
-        sess_options.intra_op_num_threads = landmark_config['num_threads']
-
-        self.session = ort.InferenceSession(
-            landmark_config['model_path'], sess_options, providers=providers
-        )
+        self.session = create_session(landmark_config['model_path'],
+                                      landmark_config['provider'],
+                                      landmark_config['num_threads'])
+        print(self.session.get_providers())
 
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]

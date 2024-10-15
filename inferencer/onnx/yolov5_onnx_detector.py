@@ -1,5 +1,4 @@
-import onnxruntime as ort
-
+from .create_session import create_session
 from ..base_detector import BaseDetector
 
 
@@ -7,19 +6,9 @@ class Yolov5OnnxDetector(BaseDetector):
     def __init__(self, detector_config):
         super(Yolov5OnnxDetector, self).__init__(detector_config)
         
-        device = detector_config['device']
-        assert device == 'cpu' or device == 'cuda'
-        if device == 'cuda':
-            providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
-        else:
-            providers = [ 'CPUExecutionProvider' ]
-
-        sess_options = ort.SessionOptions()
-        sess_options.intra_op_num_threads = detector_config['num_threads']
-
-        self.session = ort.InferenceSession(
-            detector_config['model_path'], sess_options, providers=providers
-        )
+        self.session = create_session(detector_config['model_path'], 
+                                      detector_config['provider'], 
+                                      detector_config['num_threads'])
 
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [o.name for o in self.session.get_outputs()]
