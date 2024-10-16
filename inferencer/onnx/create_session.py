@@ -3,7 +3,7 @@ import onnxruntime as ort
 VALID_PROVIDERS = set(['cpu', 'cuda', 'openvino'])
 
 
-def create_session(model_path, provider, num_threads):
+def create_session(model_path, provider, num_threads=1):
     assert provider in VALID_PROVIDERS
 
     providers = None
@@ -19,7 +19,7 @@ def create_session(model_path, provider, num_threads):
         providers = [ 'CPUExecutionProvider' ]
 
     sess_options = ort.SessionOptions()
-    sess_options.intra_op_num_threads = num_threads
+    # sess_options.intra_op_num_threads = num_threads
 
     session = ort.InferenceSession(
         model_path, sess_options, providers=providers

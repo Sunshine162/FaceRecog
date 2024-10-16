@@ -1,6 +1,6 @@
 import numpy as np
 
-def xywh2xyxy(box):
+def xywh2xyxy(boxes):
     """
     Convert nx4 boxes from [x, y, w, h] to [x1, y1, x2, y2] where 
     xy1=top-left, xy2=bottom-right
@@ -9,18 +9,18 @@ def xywh2xyxy(box):
         https://github.com/610265158/Peppa_Pig_Face_Landmark
 
     Args:
-        box: format is [x_center, y_center, width, height]
+        boxes: format is [[x_center, y_center, width, height], ...]
     
     Return:
-        new_box: format is [x_left, y_top, x_right, y_bottom]
+        new_boxes: format is [[x_left, y_top, x_right, y_bottom]]
     """
 
-    new_box =  np.copy(box)
-    new_box[:, 0] = box[:, 0] - box[:, 2] / 2  # top left x
-    new_box[:, 1] = box[:, 1] - box[:, 3] / 2  # top left y
-    new_box[:, 2] = box[:, 0] + box[:, 2] / 2  # bottom right x
-    new_box[:, 3] = box[:, 1] + box[:, 3] / 2  # bottom right y
-    return new_box
+    new_boxes =  np.copy(boxes)
+    new_boxes[..., 0] = boxes[..., 0] - boxes[..., 2] / 2  # top left x
+    new_boxes[..., 1] = boxes[..., 1] - boxes[..., 3] / 2  # top left y
+    new_boxes[..., 2] = boxes[..., 0] + boxes[..., 2] / 2  # bottom right x
+    new_boxes[..., 3] = boxes[..., 1] + boxes[..., 3] / 2  # bottom right y
+    return new_boxes
 
 def revert_boxes(box, left_pad, top_pad, scale_factor):
     """revert coordinates of box to original image

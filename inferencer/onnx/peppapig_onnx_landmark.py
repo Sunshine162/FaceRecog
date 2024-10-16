@@ -8,8 +8,7 @@ class PeppaPigOnnxLandmark(BaseLandmark):
         super(PeppaPigOnnxLandmark, self).__init__(landmark_config)
         
         self.session = create_session(landmark_config['model_path'],
-                                      landmark_config['provider'],
-                                      landmark_config['num_threads'])
+                                      landmark_config['provider'])
         print(self.session.get_providers())
 
         self.input_name = self.session.get_inputs()[0].name
