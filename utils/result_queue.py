@@ -42,8 +42,16 @@ class Frame:
             face.det_score = score
             face.det_flag = flag
             face.progress = LANDMARK_TO_DO if flag else PASS
+            self.faces.append(face)
 
-        self.finish = False
+    @property
+    def is_finish(self):
+        finish = True
+        for face in self.faces:
+            if face.progress != DONE and face.progress != PASS:
+                finish = False
+                break
+        return finish
 
 
 class ResultQueue():
