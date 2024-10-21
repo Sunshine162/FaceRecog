@@ -18,5 +18,5 @@ class Yolov5OnnxDetector(BaseDetector):
             return self.session.run(
                 self.output_names, {self.input_name: input_data})
         except Exception as e:
-            print(e)
+            # print(e)
             return None

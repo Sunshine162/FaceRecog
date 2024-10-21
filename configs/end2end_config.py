@@ -33,7 +33,7 @@ cfg = {
             'std': [255.0, 255.0, 255.0],
         },
         'five_point_indices': [96, 97, 54, 76, 82],
-        'conf_threshold': 0.9,
+        'conf_threshold': 0.7,
     },
 
     'recognizer': {

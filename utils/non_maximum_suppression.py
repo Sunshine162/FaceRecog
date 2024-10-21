@@ -4,7 +4,7 @@ def py_nms(bboxes, iou_thres, score_thres):
     """
     reference: https://github.com/610265158/Peppa_Pig_Face_Landmark/blob/master/Skps/core/api/face_detector.py#L95
     """
-    print(bboxes.shape)
+
     upper_thres = np.where(bboxes[:, 4] > score_thres)[0]
 
     bboxes = bboxes[upper_thres]

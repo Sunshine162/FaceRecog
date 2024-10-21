@@ -32,7 +32,7 @@ class BaseLandmark:
         _start = 0
         for img, cnt in info:
             img_size = (img.shape[1], img.shape[0])
-            for input_box in det_boxes[_start : _start + cnt]:
+            for det_box in det_boxes[_start : _start + cnt]:
                 # crop
                 input_box = extend_box(det_box, self.box_extend_cfg, img_size)
                 l, t, r, b = input_box   # left, top, right, bottom
@@ -47,7 +47,7 @@ class BaseLandmark:
                 # normalization
                 image_croped = (image_croped - self.norm_mean) / self.norm_std
 
-                input_data.append(image_croped)
+                input_data.append(image_croped[None, ...])
                 metas.append({'input_box': input_box})
 
         input_data = np.concatenate(input_data, axis=0)
