@@ -2,79 +2,94 @@ import time
 import cv2
 import numpy as np
 
-from concurrent.futures import ThreadPoolExecutor, wait,\
-    ALL_COMPLETED, FIRST_COMPLETED, as_completed
+from multiprocessing import Process
+from queue import Queue
+from threading import Thread
+
 from configs.end2end_config import cfg
-from ctypes import cast, py_object
 from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark
 from utils import DataQueue
 
 
-def put_frame(data_queue, frame_id, image):
-    data_queue.put_frame(frame_id, image)
+END = -1
 
 
-def detect_face(data_queue, detector):
-    frame_info, images = data_queue.get_batch_images()
-    if images:
-        det_results = detector.predict(images)
-        data_queue.put_batch_detect_results(frame_info, det_results)
+def put_frame(video_path_or_cam, input_queue):
+    global END
 
-
-def detect_keypoint(data_queue, landmark_model):
-    face_info, boxes = data_queue.get_batch_boxes()
-    if boxes:
-        new_info = []
-        for (frame_address, start, size) in face_info:
-            frame = cast(frame_address, py_object).value
-            new_info.append((frame.image, size))
-        five_points, confidences, flags = landmark_model.predict(new_info, boxes)
-        data_que.put_batch_keypoints(face_info, 
-                                     (five_points, confidences, flags))
-
-
-def predict_video(video_path_or_cam, data_queue, detector, lmk_model):
-    is_finish = False
-
-    # put frame to data queue
-    pool1= ThreadPoolExecutor(max_workers=1)
-    vide_capture=cv2.VideoCapture(video_path_or_cam)
-    frame_id = 0
-    while True and not is_finish:
+    vide_capture = cv2.VideoCapture(video_path_or_cam)
+    frame_index = 0
+    while True:
         ret, image = vide_capture.read()
-        # if not ret or frame_id >= 10000:
         if not ret:
+            input_queue.put((END, None), block=True)
             break
-        task = pool1.submit(
-            lambda all_args: put_frame(*all_args), (data_queue, frame_id, image))
-        frame_id += 1
-    print("AAAA")
+        input_queue.put((frame_index, image), block=True)
+        frame_index += 1
 
-    # run detect
-    pool2= ThreadPoolExecutor(max_workers=cfg['detector']['num_workers'])
-    while True and not is_finish:
-        task = pool2.submit(
-            lambda all_args: detect_face(*all_args), (data_queue, detector))
-    print("BBBB")
 
-    # run landmark
-    pool3= ThreadPoolExecutor(max_workers=cfg['landmark']['num_workers'])
-    while True and not is_finish:
-        task = pool3.submit(
-            lambda all_args: detect_keypoint(*all_args), (data_queue, lmk_model))
-    print("CCCC")
+def predict_image(input_queue, output_dict, detector, lmk_model):
+    global END
 
-    # draw detection and recognition results
-    start = time.time()
-    while True: 
-        frame = data_queue.get_result()
-        if not frame:
-            is_finish = True
+    while True:
+        frame_index, src = input_queue.get(block=True)
+        if frame_index == END:
+            output_dict[frame_index] = None
             break
-        dst = frame.image
-        end = time.time()
-        fps = 1 / (end - start)
-        start = end
+
+        det_results = detector.predict(src[None, ...])
+        det_boxes, det_confs, det_flags = det_results[0]
+
+        dst = src.copy()
+        for i, det_flag in enumerate(det_flags):
+            if not det_flag:
+                continue
+
+            det_box = det_boxes[i]
+            l, t, r, b = det_box.astype(np.int64).tolist()
+            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
+
+            five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
+            if lmk_flags[0]:
+                radius = max(3, int(max(dst.shape[:2]) / 1000))
+                for point in five_points[0]:
+                    point = point.astype(np.int64).tolist()
+                    cv2.circle(dst, point, radius, (0, 0, 255), -1)
+        
+        output_dict[frame_index] = dst
+
+
+def predict_video(video_path_or_cam):
+    max_length = cfg['pipeline']['queue_max_length']
+    input_queue = Queue(maxsize=max_length)
+    output_dict = {}
+    detector = Yolov5OnnxDetector(cfg['detector'])
+    lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
+
+    # read frame from video file or stream
+    put_thread = Thread(target=put_frame, args=[video_path_or_cam, input_queue])
+    put_thread.start()
+
+    # run models
+    predict_threads = []
+    for i in range(cfg['pipeline']['num_workers']):
+        predict_thread = Thread(
+            target=predict_image, 
+            args=(input_queue, output_dict, detector, lmk_model)
+        )
+        predict_thread.start()
+        predict_threads.append(predict_thread)
+
+    # display
+    global END
+    frame_index = 0
+    while END not in output_dict:
+        start = time.time()
+        while frame_index not in output_dict:
+            time.sleep(cfg['pipeline']['wait_time'])
+        dst = output_dict.pop(frame_index)
+        duration = max(time.time() - start, 1e-5)
+        fps = 1 / duration
         cv2.putText(dst, f"fps: {fps:.0f}", (20, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
         cv2.namedWindow("capture", 0)
@@ -83,27 +98,12 @@ def predict_video(video_path_or_cam, data_queue, detector, lmk_model):
         key = cv2.waitKey(1)
         if key == ord('q'):
             return
-
-    pool1.shutdown()
-    pool2.shutdown()
-    pool3.shutdown()
+        
+        frame_index += 1
 
 
 def main():
-
-    detector = Yolov5OnnxDetector(cfg['detector'])
-    lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
-    data_queue = DataQueue(max_length=cfg['data_queue']['max_length'],
-                            det_batch_size=cfg['detector']['batch_size'],
-                            lmk_batch_size=cfg['landmark']['batch_size'],
-                            rec_batch_size=cfg['recognizer']['batch_size'])
-
-    # src = cv2.imread('images/test1.jpg')
-    # dst = predict_image(src, detector, lmk_model)
-    # cv2.imwrite('images/test1_out.jpg', dst)
-
-    print('inital finish')
-    predict_video('videos/GodofGamblers.mp4', data_queue, detector, lmk_model)
+    predict_video('videos/GodofGamblers.mp4')
 
 
 if __name__ == "__main__":

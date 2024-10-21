@@ -2,8 +2,8 @@ cfg = {
     'detector': {
         'model_path': 'models/onnx/yolov5n-0.5.onnx',
         'engine': 'onnxruntime',
-        'provider': 'openvino',
-        'num_workers': 1,
+        'provider': 'cpu',
+        # 'num_workers': 1,
         'batch_size': 1,
         'input_size': (640, 384),
         'normalization': {
@@ -17,10 +17,10 @@ cfg = {
     },
 
     'landmark': {
-        'model_path': 'models/onnx/kps_student.onnx',
+        'model_path': 'models/onnx/kps_student_256.onnx',
         'engine': 'onnxruntime',
-        'provider': 'openvino',
-        'num_workers': 1,
+        'provider': 'cpu',
+        # 'num_workers': 1,
         'batch_size': 1,
         'input_size': (256, 256),
         'extend': {
@@ -39,8 +39,8 @@ cfg = {
     'recognizer': {
         'model_path': 'models/onnx/mobilefacenet.onnx',
         'engine': 'onnxruntime',
-        'provider': 'openvino',
-        'num_workers': 1,
+        'provider': 'cpu',
+        # 'num_workers': 1,
         'batch_size': 1,
         'input_size': (112, 112),
         'extend': {
@@ -49,7 +49,9 @@ cfg = {
         }
     },
 
-    'data_queue': {
-        'max_length': 30,
+    'pipeline': {
+        'queue_max_length': 30,
+        'num_workers': 4,
+        'wait_time': 1e-4
     }
 }

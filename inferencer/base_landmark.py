@@ -24,31 +24,30 @@ class BaseLandmark:
         self.five_point_indices = landmark_config['five_point_indices']
         self.conf_threshold = landmark_config['conf_threshold']
     
-    def preprocess(self, info, det_boxes):
+    def preprocess(self, img, det_boxes):
         """data preprocess"""
 
+        img_size = (img.shape[1], img.shape[0])
         input_data = []
         metas = []
-        _start = 0
-        for img, cnt in info:
-            img_size = (img.shape[1], img.shape[0])
-            for det_box in det_boxes[_start : _start + cnt]:
-                # crop
-                input_box = extend_box(det_box, self.box_extend_cfg, img_size)
-                l, t, r, b = input_box   # left, top, right, bottom
-                image_croped = img[t:b, l:r, :]
+            
+        for det_box in det_boxes:
+            # crop
+            input_box = extend_box(det_box, self.box_extend_cfg, img_size)
+            l, t, r, b = input_box   # left, top, right, bottom
+            image_croped = img[t:b, l:r, :]
 
-                # resize
-                image_croped = cv2.resize(image_croped, (self.input_size[1],
-                                                    self.input_size[0]))
-                # HWC -> CHW, uint8 -> float32
-                image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
+            # resize
+            image_croped = cv2.resize(image_croped, (self.input_size[1],
+                                                self.input_size[0]))
+            # HWC -> CHW, uint8 -> float32
+            image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
 
-                # normalization
-                image_croped = (image_croped - self.norm_mean) / self.norm_std
+            # normalization
+            image_croped = (image_croped - self.norm_mean) / self.norm_std
 
-                input_data.append(image_croped[None, ...])
-                metas.append({'input_box': input_box})
+            input_data.append(image_croped[None, ...])
+            metas.append({'input_box': input_box})
 
         input_data = np.concatenate(input_data, axis=0)
         return input_data, metas
