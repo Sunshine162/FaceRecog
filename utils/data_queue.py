@@ -18,23 +18,23 @@ DONE = 5
 
 @dataclass
 class Face:
-    face_id: int
+    face_id: int = 0
 
-    det_box: Union[Sequence, np.ndarray]
-    det_score: float
-    det_flag: bool
+    det_box: Union[Sequence, np.ndarray] = None
+    det_score: float = None
+    det_flag: bool = None
 
-    keypoints: Union[Sequence, np.ndarray]
-    kpt_score: float
-    kpt_flag = bool
+    keypoints: Union[Sequence, np.ndarray] = None
+    kpt_score: float = None
+    kpt_flag: bool = None
 
-    feature: np.ndarray
-    person_name: str
-    person_id = int
-    confidence = float
-    rec_flag = bool
+    feature: np.ndarray = None
+    person_name: str = None
+    person_id: int = None
+    confidence: float = None
+    rec_flag: bool = None
 
-    progress = int
+    progress: int = None
 
 
 class Frame:
@@ -45,13 +45,14 @@ class Frame:
         self.is_finish = False
 
     def put_face_boxes(self, det_boxes, det_scores, det_flags):
-        for i, (box, score, flag) in enumerate(zip(det_boxes, det_scores, det_flag)):
+        for i, (box, score, flag) in enumerate(zip(det_boxes, det_scores, det_flags)):
             face = Face()
-            face.id = i
+            face.face_id = i
             face.det_box = box
             face.det_score = score
             face.det_flag = flag
             face.progress = LANDMARK_TO_DO if flag else PASS
+            
             self.faces.append(face)
 
     def put_keypoints(self, start, keypoints, kpt_scores, kpt_flags):
@@ -79,7 +80,7 @@ class Frame:
             self.is_finish = True
 
 
-class FrameQueue():
+class DataQueue():
     def __init__(self, max_length=30, det_batch_size=1, lmk_batch_size=1, rec_batch_size=1):
         self.max_length = max_length
         self.frame_queue = Queue(maxsize=max_length)
@@ -97,9 +98,10 @@ class FrameQueue():
     
     def put_frame(self, frame_id, img):
         frame_obj = Frame(frame_id, img)
-        self.frame_queue.put([frame_id, img], block=True, timeout=3)
-        assert len(self.address_list) < self.max_length
+        self.frame_queue.put(frame_obj)
+        # assert len(self.address_list) < self.max_length
         self.address_list.append(id(frame_obj))
+        # print(cast(self.address_list[-1], py_object).value.frame_id)
     
     def get_result(self):
         """
@@ -138,15 +140,19 @@ class FrameQueue():
             frame_info = []
             images = []
             frame_idx = self.det_start['frame_index']
+            if frame_idx < 0:
+                return None, None
             
-            for address in self.address_list[frame_idx:]:
+            for frame_address in self.address_list[frame_idx:]:
                 frame = cast(frame_address, py_object).value
-                frame_info.append(address)
+                frame_info.append(frame_address)
                 images.append(frame.image)
-
+                
                 if len(images) == self.det_batch_size:
                     break
 
+            self.det_start['frame_index'] += len(images)
+            
         return frame_info, images
     
     def get_batch_boxes(self):
@@ -155,11 +161,14 @@ class FrameQueue():
             face_info = []
             boxes = []
             frame_idx = self.lmk_start['frame_index']
+            if frame_idx < 0:
+                return None, None
+
             face_idx = self.lmk_start['face_index']
             new_frame_idx = frame_idx
             new_face_idx = face_idx
 
-            for address in self.address_list[frame_idx:]:
+            for frame_address in self.address_list[frame_idx:]:
                 frame = cast(frame_address, py_object).value
                 
                 cnt = 0
@@ -172,7 +181,7 @@ class FrameQueue():
                         break
                     
                 if cnt:
-                    face_info.append((address, face_idx, cnt))
+                    face_info.append((frame_address, face_idx, cnt))
 
                 face_idx = new_face_idx
                 if new_face_idx == 0:
@@ -197,7 +206,7 @@ class FrameQueue():
             new_frame_idx = frame_idx
             new_face_idx = face_idx
 
-            for address in self.address_list[frame_idx:]:
+            for frame_address in self.address_list[frame_idx:]:
                 frame = cast(frame_address, py_object).value
                 
                 cnt = 0
@@ -211,7 +220,7 @@ class FrameQueue():
                         break
                     
                 if cnt:
-                    face_info.append((address, face_idx, cnt))
+                    face_info.append((frame_address, face_idx, cnt))
 
                 face_idx = new_face_idx
                 if new_face_idx == 0:
@@ -225,15 +234,16 @@ class FrameQueue():
 
         return face_info, boxes, keypoints
 
-    def put_detect_results(self, det_results):
-        frame_address, det_boxes, det_scores, det_flags = det_results
-        frame = cast(frame_address, py_object).value
-        frame.put_face_boxes(det_boxes, det_scores, det_flags)
+    def put_batch_detect_results(self, frame_info, det_results):
+        for frame_address, det_result in zip(frame_info, det_results):
+            frame = cast(frame_address, py_object).value
+            det_boxes, det_scores, det_flags = det_result
+            frame.put_face_boxes(det_boxes, det_scores, det_flags)
 
-    def put_batch_keypoints(self, batch_keypoints):
+    def put_batch_keypoints(self, face_info, batch_keypoints):
         """一对一、一拆多、多合一"""
 
-        face_info, keypoints, kpt_scores, kpt_flags = batch_keypoints
+        keypoints, kpt_scores, kpt_flags = batch_keypoints
         _start = 0
         for (frame_address, start, size) in face_info:
             frame = cast(frame_address, py_object).value
@@ -243,10 +253,10 @@ class FrameQueue():
                                 kpt_flags[_start: _start + size])
             _start += size
 
-    def put_batch_recog_results(self, batch_recog_results):
+    def put_batch_recog_results(self, face_info, batch_recog_results):
         """一对一、一拆多、多合一"""
 
-        face_info, recog_ids, recog_names, recog_confs, recog_flags = batch_recog_results
+        recog_ids, recog_names, recog_confs, recog_flags = batch_recog_results
         _start = 0
         for (frame_address, start, size) in face_info:
             frame = cast(frame_address, py_object).value

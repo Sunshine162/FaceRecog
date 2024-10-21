@@ -22,37 +22,43 @@ class BaseLandmark:
                                  np.float32).reshape(3, 1, 1)
         self.box_extend_cfg = landmark_config['extend']
         self.five_point_indices = landmark_config['five_point_indices']
+        self.conf_threshold = landmark_config['conf_threshold']
     
-    def preprocess(self, img, det_box):
+    def preprocess(self, info, det_boxes):
         """data preprocess"""
 
-        img_size = (img.shape[1], img.shape[0])
+        input_data = []
+        metas = []
+        _start = 0
+        for img, cnt in info:
+            img_size = (img.shape[1], img.shape[0])
+            for input_box in det_boxes[_start : _start + cnt]:
+                # crop
+                input_box = extend_box(det_box, self.box_extend_cfg, img_size)
+                l, t, r, b = input_box   # left, top, right, bottom
+                image_croped = img[t:b, l:r, :]
 
-        # crop
-        input_box = extend_box(det_box, self.box_extend_cfg, img_size)
-        l, t, r, b = input_box   # left, top, right, bottom
-        image_croped = img[t:b, l:r, :]
+                # resize
+                image_croped = cv2.resize(image_croped, (self.input_size[1],
+                                                    self.input_size[0]))
+                # HWC -> CHW, uint8 -> float32
+                image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
 
-        # resize
-        image_croped = cv2.resize(image_croped, (self.input_size[1],
-                                             self.input_size[0]))
-        # HWC -> CHW, uint8 -> float32
-        image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
+                # normalization
+                image_croped = (image_croped - self.norm_mean) / self.norm_std
 
-        # normalization
-        image_croped = (image_croped - self.norm_mean) / self.norm_std
+                input_data.append(image_croped)
+                metas.append({'input_box': input_box})
 
-        input_data = np.expand_dims(image_croped, axis=0)
-        meta = {'input_box': input_box}
-
-        return input_data, meta
+        input_data = np.concatenate(input_data, axis=0)
+        return input_data, metas
     
     def infer(self, input_data):
         """model inference"""
 
         raise NotImplementedError()
     
-    def postprocess(self, output_data, meta):
+    def postprocess(self, output_data, metas):
         """process model outputs
 
         Args: 
@@ -61,27 +67,28 @@ class BaseLandmark:
         
         Return:
             boxes: prediction boundding boxes
-            scores: confidence of boxes
+            confidences: confidence of boxes
+            flags: is box valid
         """
         
         assert len(output_data) == 2
         landmarks, scores = output_data
-        assert landmarks.shape[0] == scores.shape[0] == 1
+        num_faces = landmarks.shape[0]
 
-        landmarks = landmarks.reshape(-1, 2)
-        scores = scores.flatten()
+        landmarks = landmarks.reshape(num_faces, -1, 2)
+        five_points = landmarks[:, self.five_point_indices, :]
+        for i in range(landmarks.shape[0]):
+            five_points[i] = revert_points(five_points[i], metas[i]['input_box'])
 
-        five_points = landmarks[self.five_point_indices, :]
-        five_points = revert_points(five_points, meta['input_box'])
+        confidences = scores.mean(axis=1)
+        flags = (confidences > self.conf_threshold).tolist()
 
-        confidence = scores.mean()
-
-        return five_points, confidence
+        return five_points, confidences, flags
         
-    def predict(self, img, det_box):
+    def predict(self, imgs, det_boxes):
         """predict one image by end2end"""
 
-        input_data, meta = self.preprocess(img, det_box)
+        input_data, metas = self.preprocess(imgs, det_boxes)
         output_data = self.infer(input_data)
-        five_points, score = self.postprocess(output_data, meta)
-        return five_points, score
+        five_points, confidences, flags = self.postprocess(output_data, metas)
+        return five_points, confidences, flags

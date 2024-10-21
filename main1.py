@@ -2,72 +2,82 @@ import time
 import cv2
 import numpy as np
 
-from concurrent.futures import ThreadPoolExecutor, wait,\
-    ALL_COMPLETED, FIRST_COMPLETED, as_completed
 from configs.end2end_config import cfg
 from ctypes import cast, py_object
 from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark
+from threading import Thread
 from utils import DataQueue
 
 
-def put_frame(data_queue, frame_id, image):
-    data_queue.put_frame(frame_id, image)
+def put_frame(video_path_or_cam, data_queue):
+    vide_capture = cv2.VideoCapture(video_path_or_cam)
+    frame_id = 0
+    while True:
+        print("aaa")
+        ret, image = vide_capture.read()
+        if not ret:
+            break
+        data_queue.put_frame(frame_id, image)
+        frame_id += 1
 
 
 def detect_face(data_queue, detector):
-    frame_info, images = data_queue.get_batch_images()
-    if images:
+    while True:
+        print("bbb")
+        frame_info, images = data_queue.get_batch_images()
+        print(frame_info)
+        if not images:
+            break
         det_results = detector.predict(images)
         data_queue.put_batch_detect_results(frame_info, det_results)
 
 
 def detect_keypoint(data_queue, landmark_model):
-    face_info, boxes = data_queue.get_batch_boxes()
-    if boxes:
+    while True:
+        face_info, boxes = data_queue.get_batch_boxes()
+        if not boxes:
+            break
+
         new_info = []
         for (frame_address, start, size) in face_info:
             frame = cast(frame_address, py_object).value
             new_info.append((frame.image, size))
+
         five_points, confidences, flags = landmark_model.predict(new_info, boxes)
-        data_que.put_batch_keypoints(face_info, 
-                                     (five_points, confidences, flags))
+        data_que.put_batch_keypoints(face_info, (five_points, confidences, flags))
 
 
 def predict_video(video_path_or_cam, data_queue, detector, lmk_model):
     is_finish = False
 
     # put frame to data queue
-    pool1= ThreadPoolExecutor(max_workers=1)
-    vide_capture=cv2.VideoCapture(video_path_or_cam)
-    frame_id = 0
-    while True and not is_finish:
-        ret, image = vide_capture.read()
-        # if not ret or frame_id >= 10000:
-        if not ret:
-            break
-        task = pool1.submit(
-            lambda all_args: put_frame(*all_args), (data_queue, frame_id, image))
-        frame_id += 1
+    put_thread = Thread(target=put_frame, args=[video_path_or_cam, data_queue])
+    put_thread.start()
+    while data_queue.frame_queue.empty():
+        time.time(0.1)
     print("AAAA")
 
     # run detect
-    pool2= ThreadPoolExecutor(max_workers=cfg['detector']['num_workers'])
-    while True and not is_finish:
-        task = pool2.submit(
-            lambda all_args: detect_face(*all_args), (data_queue, detector))
+    det_threads = []
+    for i in range(cfg['detector']['num_workers']):
+        det_thread = Thread(target=detect_face, args=[data_queue, detector])
+        det_thread.start()
+        det_threads.append(det_thread)
     print("BBBB")
 
     # run landmark
-    pool3= ThreadPoolExecutor(max_workers=cfg['landmark']['num_workers'])
-    while True and not is_finish:
-        task = pool3.submit(
-            lambda all_args: detect_keypoint(*all_args), (data_queue, lmk_model))
+    lmk_threads = []
+    for i in range(cfg['landmark']['num_workers']):
+        lmk_thread = Thread(target=detect_keypoint, args=[data_queue, lmk_model])
+        lmk_thread.start()
+        lmk_threads.append(lmk_thread)
     print("CCCC")
 
     # draw detection and recognition results
     start = time.time()
     while True: 
         frame = data_queue.get_result()
+        print(frame.image.shape)
         if not frame:
             is_finish = True
             break
@@ -83,10 +93,6 @@ def predict_video(video_path_or_cam, data_queue, detector, lmk_model):
         key = cv2.waitKey(1)
         if key == ord('q'):
             return
-
-    pool1.shutdown()
-    pool2.shutdown()
-    pool3.shutdown()
 
 
 def main():

@@ -2,8 +2,9 @@ cfg = {
     'detector': {
         'model_path': 'models/onnx/yolov5n-0.5.onnx',
         'engine': 'onnxruntime',
-        'provider': 'cpu',
-        'num_threads': 1,
+        'provider': 'openvino',
+        'num_workers': 1,
+        'batch_size': 1,
         'input_size': (640, 384),
         'normalization': {
             'mean': [0.0, 0.0, 0.0],
@@ -18,11 +19,10 @@ cfg = {
     'landmark': {
         'model_path': 'models/onnx/kps_student.onnx',
         'engine': 'onnxruntime',
-        'provider': 'cpu',
-        'num_threads': 1,
+        'provider': 'openvino',
+        'num_workers': 1,
+        'batch_size': 1,
         'input_size': (256, 256),
-
-        
         'extend': {
             'square': True,
             'side': 'width',  # choices = ['width', 'height', 'max', 'min']
@@ -33,16 +33,23 @@ cfg = {
             'std': [255.0, 255.0, 255.0],
         },
         'five_point_indices': [96, 97, 54, 76, 82],
+        'conf_threshold': 0.9,
     },
 
     'recognizer': {
         'model_path': 'models/onnx/mobilefacenet.onnx',
         'engine': 'onnxruntime',
-        'provider': 'cpu',
+        'provider': 'openvino',
+        'num_workers': 1,
+        'batch_size': 1,
         'input_size': (112, 112),
         'extend': {
             'square': False,
             'ratio': 1.1
         }
+    },
+
+    'data_queue': {
+        'max_length': 30,
     }
 }
