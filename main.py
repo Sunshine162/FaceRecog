@@ -1,39 +1,40 @@
+from queue import Queue
 import time
+from threading import Thread
+
 import cv2
 import numpy as np
 
-from multiprocessing import Process
-from queue import Queue
-from threading import Thread
-
 from configs.end2end_config import cfg
 from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark
-from utils import DataQueue
 
 
-END = -1
+# stop flag of multiple threads
+LAST_FRAME = -1
+PREDICT_FINISH = False
 
 
-def put_frame(video_path_or_cam, input_queue):
-    global END
+def put_frame(video_capture, input_queue):
+    global LAST_FRAME
 
-    vide_capture = cv2.VideoCapture(video_path_or_cam)
     frame_index = 0
     while True:
-        ret, image = vide_capture.read()
+        ret, image = video_capture.read()
         if not ret:
-            input_queue.put((END, None), block=True)
+            input_queue.put((LAST_FRAME, None), block=True)
             break
         input_queue.put((frame_index, image), block=True)
         frame_index += 1
 
 
 def predict_image(input_queue, output_dict, detector, lmk_model):
-    global END
+    global LAST_FRAME
+    global PREDICT_FINISH
 
-    while True:
+    while not PREDICT_FINISH:
         frame_index, src = input_queue.get(block=True)
-        if frame_index == END:
+        if frame_index == LAST_FRAME:
+            PREDICT_FINISH = True
             output_dict[frame_index] = None
             break
 
@@ -42,32 +43,45 @@ def predict_image(input_queue, output_dict, detector, lmk_model):
 
         dst = src.copy()
         for i, det_flag in enumerate(det_flags):
+            det_box = det_boxes[i]
             if not det_flag:
                 continue
 
-            det_box = det_boxes[i]
+            # draw detection boundding box
             l, t, r, b = det_box.astype(np.int64).tolist()
             cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
 
+            # predict landmark
             five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
             if lmk_flags[0]:
-                radius = max(3, int(max(dst.shape[:2]) / 1000))
-                for point in five_points[0]:
-                    point = point.astype(np.int64).tolist()
-                    cv2.circle(dst, point, radius, (0, 0, 255), -1)
+                continue
+            # draw five key points
+            radius = max(3, int(max(dst.shape[:2]) / 1000))
+            for point in five_points[0]:
+                point = point.astype(np.int64).tolist()
+                cv2.circle(dst, point, radius, (0, 0, 255), -1)
         
         output_dict[frame_index] = dst
 
 
 def predict_video(video_path_or_cam):
-    max_length = cfg['pipeline']['queue_max_length']
-    input_queue = Queue(maxsize=max_length)
-    output_dict = {}
+    # load models
     detector = Yolov5OnnxDetector(cfg['detector'])
     lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
 
+    # create input_queue for receiving frames
+    max_length = cfg['pipeline']['queue_max_length']
+    input_queue = Queue(maxsize=max_length)
+    # create output_dict for receiving recognition result
+    output_dict = {}
+
+    # get basic information of vieo
+    video_capture = cv2.VideoCapture(video_path_or_cam)
+    fps = video_capture.get(cv2.CAP_PROP_FPS)
+    total = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+
     # read frame from video file or stream
-    put_thread = Thread(target=put_frame, args=[video_path_or_cam, input_queue])
+    put_thread = Thread(target=put_frame, args=[video_capture, input_queue])
     put_thread.start()
 
     # run models
@@ -80,30 +94,45 @@ def predict_video(video_path_or_cam):
         predict_thread.start()
         predict_threads.append(predict_thread)
 
-    # display
-    global END
+    # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> display >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    start = time.time()
+    time_interval = 1 / fps 
     frame_index = 0
-    while END not in output_dict:
-        start = time.time()
+    while frame_index != total:
+        frame_start = time.time()
         while frame_index not in output_dict:
             time.sleep(cfg['pipeline']['wait_time'])
+
         dst = output_dict.pop(frame_index)
-        duration = max(time.time() - start, 1e-5)
-        fps = 1 / duration
-        cv2.putText(dst, f"fps: {fps:.0f}", (20, 20), 
+        duration = max(time.time() - frame_start, time_interval)
+        curr_fps = 1 / duration
+        cv2.putText(dst, f"fps: {curr_fps:.0f}", (20, 20), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
+
+        time.sleep(duration)
         cv2.namedWindow("capture", 0)
         cv2.imshow("capture", dst)
+        cv2.waitKey(1)
 
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            return
-        
         frame_index += 1
+
+    time_spent = time.time() - start
+    avg_fps = total / time_spent
+    qml = cfg['pipeline']['queue_max_length']
+    nw = cfg['pipeline']['num_workers']
+    print(f"max_length={qml} workers={nw} frames={total} time={time_spent:.1f} "
+          f"fps={avg_fps:.1f}")
+    # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    # release resource
+    cv2.destroyAllWindows()
+    put_thread.join()
+    for t in predict_threads:
+        t.join()
 
 
 def main():
-    predict_video('videos/GodofGamblers.mp4')
+    predict_video('videos/Trump3.mp4')
 
 
 if __name__ == "__main__":

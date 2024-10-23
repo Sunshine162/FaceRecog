@@ -46,7 +46,7 @@ class BaseDetector:
             h, w, c = img.shape
 
             # scale image
-            scale_factor = min(self.input_size[0] / h, self.input_size[1] / w)
+            scale_factor = min(self.input_size[0] / w, self.input_size[1] / h)
             img = cv2.resize(img, (int(w * scale_factor), int(h * scale_factor)))
             h, w, c = img.shape
 

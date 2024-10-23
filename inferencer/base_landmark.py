@@ -38,8 +38,7 @@ class BaseLandmark:
             image_croped = img[t:b, l:r, :]
 
             # resize
-            image_croped = cv2.resize(image_croped, (self.input_size[1],
-                                                self.input_size[0]))
+            image_croped = cv2.resize(image_croped, self.input_size)
             # HWC -> CHW, uint8 -> float32
             image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
 

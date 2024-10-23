@@ -50,8 +50,8 @@ cfg = {
     },
 
     'pipeline': {
-        'queue_max_length': 30,
-        'num_workers': 4,
+        'queue_max_length': 16,
+        'num_workers': 8,
         'wait_time': 1e-4
     }
 }
