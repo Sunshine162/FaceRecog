@@ -14,9 +14,6 @@ class Yolov5OnnxDetector(BaseDetector):
 
     def infer(self, input_data):
         """model inference"""
-        try:
-            return self.session.run(
-                self.output_names, {self.input_name: input_data})
-        except Exception as e:
-            # print(e)
-            return None
+
+        return self.session.run(
+            self.output_names, {self.input_name: input_data})

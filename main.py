@@ -53,7 +53,7 @@ def predict_image(input_queue, output_dict, detector, lmk_model):
 
             # predict landmark
             five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
-            if lmk_flags[0]:
+            if not lmk_flags[0]:
                 continue
             # draw five key points
             radius = max(3, int(max(dst.shape[:2]) / 1000))
@@ -102,13 +102,10 @@ def predict_video(video_path_or_cam):
         frame_start = time.time()
         while frame_index not in output_dict:
             time.sleep(cfg['pipeline']['wait_time'])
-
         dst = output_dict.pop(frame_index)
+
         duration = max(time.time() - frame_start, time_interval)
         curr_fps = 1 / duration
-        cv2.putText(dst, f"fps: {curr_fps:.0f}", (20, 20), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), thickness=2)
-
         time.sleep(duration)
         cv2.namedWindow("capture", 0)
         cv2.imshow("capture", dst)

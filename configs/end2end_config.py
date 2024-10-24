@@ -10,8 +10,8 @@ cfg = {
             'mean': [0.0, 0.0, 0.0],
             'std': [255.0, 255.0, 255.0],
         },
-        'conf_threshold': 0.72,
-        'nms_threshold': 0.1,
+        'conf_threshold': 0.5,
+        'nms_threshold': 0.6,
         'min_face': 100,
         'max_outputs': 20,
     },
@@ -33,7 +33,7 @@ cfg = {
             'std': [255.0, 255.0, 255.0],
         },
         'five_point_indices': [96, 97, 54, 76, 82],
-        'conf_threshold': 0.7,
+        'conf_threshold': 0.6,
     },
 
     'recognizer': {
@@ -50,8 +50,8 @@ cfg = {
     },
 
     'pipeline': {
-        'queue_max_length': 16,
-        'num_workers': 8,
+        'queue_max_length': 24,
+        'num_workers': 4,
         'wait_time': 1e-4
     }
 }
