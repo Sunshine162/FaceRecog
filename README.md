@@ -15,9 +15,11 @@ python main.py videos/Trump3.mp4
 
 ## Feature
 
-[X] 1. implement single ONNX end2end demo of face detect->landmark->recognize.
-[X] 2. inference with multiple threads.
-[ ] 3. implement frame skipping.
-[ ] 4. implement multiple batch size for landmark inference and recognizer inference.
-[ ] 5. ONNX model optimization.
-[ ] 6. implemet face tracing. 
+
+- [X] implement single ONNX end2end demo of face detect->landmark->recognize.
+- [X] inference with multiple threads.
+- [ ] implement frame skipping.
+- [ ] implement multiple batch size for landmark inference and recognizer inference.
+- [ ] ONNX model optimization.
+- [ ] implemet face tracing.
+- [ ] implemet openvino.
