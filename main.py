@@ -6,7 +6,8 @@ import cv2
 import numpy as np
 
 from configs.end2end_config import cfg
-from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark
+from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark, \
+                       MobileFacenetOnnxRecognizer
 
 
 # stop flag of multiple threads
@@ -27,7 +28,7 @@ def put_frame(video_capture, input_queue):
         frame_index += 1
 
 
-def predict_image(input_queue, output_dict, detector, lmk_model):
+def predict_image(input_queue, output_dict, detector, lmk_model, recognizer):
     global LAST_FRAME
     global PREDICT_FINISH
 
@@ -47,19 +48,28 @@ def predict_image(input_queue, output_dict, detector, lmk_model):
             if not det_flag:
                 continue
 
-            # draw detection boundding box
-            l, t, r, b = det_box.astype(np.int64).tolist()
-            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
-
             # predict landmark
             five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
             if not lmk_flags[0]:
                 continue
+
+            # draw detection boundding box
+            l, t, r, b = det_box.astype(np.int64).tolist()
+            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
+
             # draw five key points
             radius = max(3, int(max(dst.shape[:2]) / 1000))
             for point in five_points[0]:
                 point = point.astype(np.int64).tolist()
                 cv2.circle(dst, point, radius, (0, 0, 255), -1)
+            
+            # recognize face
+            pred_names, confs, flags = recognizer.predict(src, [det_box], 
+                                                          five_points)
+            pred_name = str(pred_names[0]) if flags[0] else 'Unknown'
+            cv2.putText(dst, pred_name, 
+                        det_box[:2].astype(np.int64).tolist(), None, 
+                        1, (254, 241, 2), 2)
         
         output_dict[frame_index] = dst
 
@@ -68,6 +78,8 @@ def predict_video(video_path_or_cam):
     # load models
     detector = Yolov5OnnxDetector(cfg['detector'])
     lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
+    recognizer = MobileFacenetOnnxRecognizer(cfg['recognizer'])
+    recognizer.set_db(detector, lmk_model)
 
     # create input_queue for receiving frames
     max_length = cfg['pipeline']['queue_max_length']
@@ -89,7 +101,7 @@ def predict_video(video_path_or_cam):
     for i in range(cfg['pipeline']['num_workers']):
         predict_thread = Thread(
             target=predict_image, 
-            args=(input_queue, output_dict, detector, lmk_model)
+            args=(input_queue, output_dict, detector, lmk_model, recognizer)
         )
         predict_thread.start()
         predict_threads.append(predict_thread)

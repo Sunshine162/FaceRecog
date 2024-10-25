@@ -37,7 +37,7 @@ cfg = {
     },
 
     'recognizer': {
-        'model_path': 'models/onnx/mobilefacenet.onnx',
+        'model_path': 'models/onnx/MobileFaceNet_L2.onnx',
         'engine': 'onnxruntime',
         'provider': 'cpu',
         # 'num_workers': 1,
@@ -46,12 +46,32 @@ cfg = {
         'extend': {
             'square': False,
             'ratio': 1.1
-        }
+        },
+        'normalization': {
+            'mean': [128.0, 128.0, 128.0],
+            'std': [128.0, 128.0, 128.0],
+        },
+        'align': {
+            'input_crop': False,
+            'pattern': [
+                [38.29459953, 51.69630051],
+                [73.53179932, 51.50139999],
+                [56.02519989, 71.73660278],
+                [41.54930115, 92.3655014 ],
+                [70.72990036, 92.20410156]
+            ]
+        },
+        'recognize': {
+            'db_images': 'faces/images/',
+            'db_features': 'faces/features',
+            'judge_mode': 'L2',   # L2, cosine
+            'threshold': 50,
+        },
     },
 
     'pipeline': {
         'queue_max_length': 24,
-        'num_workers': 4,
+        'num_workers': 16,
         'wait_time': 1e-4
     }
 }
