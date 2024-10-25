@@ -48,14 +48,14 @@ def predict_image(input_queue, output_dict, detector, lmk_model, recognizer):
             if not det_flag:
                 continue
 
+            # draw detection boundding box
+            l, t, r, b = det_box.astype(np.int64).tolist()
+            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
+
             # predict landmark
             five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
             if not lmk_flags[0]:
                 continue
-
-            # draw detection boundding box
-            l, t, r, b = det_box.astype(np.int64).tolist()
-            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
 
             # draw five key points
             radius = max(3, int(max(dst.shape[:2]) / 1000))
@@ -141,7 +141,10 @@ def predict_video(video_path_or_cam):
 
 
 def main():
-    predict_video('videos/Trump3.mp4')
+    # predict_video('videos/Trump3.mp4')
+    # predict_video('videos/GodofGamblers.mp4')
+    import sys
+    predict_video(sys.argv[1])
 
 
 if __name__ == "__main__":

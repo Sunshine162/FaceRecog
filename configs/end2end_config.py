@@ -3,8 +3,7 @@ cfg = {
         'model_path': 'models/onnx/yolov5n-0.5.onnx',
         'engine': 'onnxruntime',
         'provider': 'cpu',
-        # 'num_workers': 1,
-        'batch_size': 1,
+        'batch_size': 1,  # detector only support batchsize=1
         'input_size': (640, 384),
         'normalization': {
             'mean': [0.0, 0.0, 0.0],
@@ -20,7 +19,6 @@ cfg = {
         'model_path': 'models/onnx/kps_student_256.onnx',
         'engine': 'onnxruntime',
         'provider': 'cpu',
-        # 'num_workers': 1,
         'batch_size': 1,
         'input_size': (256, 256),
         'extend': {
@@ -40,7 +38,6 @@ cfg = {
         'model_path': 'models/onnx/MobileFaceNet_L2.onnx',
         'engine': 'onnxruntime',
         'provider': 'cpu',
-        # 'num_workers': 1,
         'batch_size': 1,
         'input_size': (112, 112),
         'extend': {
@@ -64,7 +61,7 @@ cfg = {
         'recognize': {
             'db_images': 'faces/images/',
             'db_features': 'faces/features',
-            'judge_mode': 'L2',   # L2, cosine
+            'judge_mode': 'L2',  # choices = ['L2', 'cosine']
             'threshold': 50,
         },
     },
