@@ -16,7 +16,8 @@ cfg = {
     },
 
     'landmark': {
-        'model_path': 'models/onnx/kps_student_256.onnx',
+        # 'model_path': 'models/onnx/kps_student_256.onnx',
+        'model_path': 'models/onnx/kps_student_256_dyn_batch.onnx',
         'engine': 'onnxruntime',
         'provider': 'cpu',
         'batch_size': 1,

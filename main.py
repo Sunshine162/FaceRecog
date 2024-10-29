@@ -141,10 +141,10 @@ def predict_video(video_path_or_cam):
 
 
 def main():
-    # predict_video('videos/Trump3.mp4')
+    predict_video('videos/Trump3.mp4')
     # predict_video('videos/GodofGamblers.mp4')
-    import sys
-    predict_video(sys.argv[1])
+    # import sys
+    # predict_video(sys.argv[1])
 
 
 if __name__ == "__main__":
