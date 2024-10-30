@@ -21,6 +21,7 @@ cfg = {
         'engine': 'onnxruntime',
         'provider': 'cpu',
         'batch_size': 1,
+        'max_batch_size': 32,
         'input_size': (256, 256),
         'extend': {
             'square': True,
@@ -40,6 +41,7 @@ cfg = {
         'engine': 'onnxruntime',
         'provider': 'cpu',
         'batch_size': 1,
+        'max_batch_size': 32,
         'input_size': (112, 112),
         'extend': {
             'square': False,
@@ -70,6 +72,7 @@ cfg = {
     'pipeline': {
         'queue_max_length': 24,
         'num_workers': 16,
-        'wait_time': 1e-4
+        'wait_time': 1e-4,
+        'frame_skipping': 2,  # process 1 frame every 3 frames
     }
 }

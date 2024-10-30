@@ -11,30 +11,31 @@ from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark, \
 
 
 # stop flag of multiple threads
-LAST_FRAME = -1
+END_OF_VIDEO = -1
 PREDICT_FINISH = False
 
 
-def put_frame(video_capture, input_queue):
-    global LAST_FRAME
+def put_frame(video_capture, input_queue, frame_skipping=1):
+    global END_OF_VIDEO
 
     frame_index = 0
     while True:
         ret, image = video_capture.read()
         if not ret:
-            input_queue.put((LAST_FRAME, None), block=True)
+            input_queue.put((END_OF_VIDEO, None), block=True)
             break
-        input_queue.put((frame_index, image), block=True)
+        if frame_index % frame_skipping == 0:
+            input_queue.put((frame_index, image), block=True)
         frame_index += 1
 
 
 def predict_image(input_queue, output_dict, detector, lmk_model, recognizer):
-    global LAST_FRAME
+    global END_OF_VIDEO
     global PREDICT_FINISH
 
     while not PREDICT_FINISH:
         frame_index, src = input_queue.get(block=True)
-        if frame_index == LAST_FRAME:
+        if frame_index == END_OF_VIDEO:
             PREDICT_FINISH = True
             output_dict[frame_index] = None
             break
@@ -81,8 +82,9 @@ def predict_video(video_path_or_cam):
     recognizer = MobileFacenetOnnxRecognizer(cfg['recognizer'])
     recognizer.set_db(detector, lmk_model)
 
+    ppl_cfg = cfg['pipeline']
     # create input_queue for receiving frames
-    max_length = cfg['pipeline']['queue_max_length']
+    max_length = ppl_cfg['queue_max_length']
     input_queue = Queue(maxsize=max_length)
     # create output_dict for receiving recognition result
     output_dict = {}
@@ -93,12 +95,14 @@ def predict_video(video_path_or_cam):
     total = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # read frame from video file or stream
-    put_thread = Thread(target=put_frame, args=[video_capture, input_queue])
+    frame_skipping = ppl_cfg['frame_skipping']
+    put_thread = Thread(target=put_frame, 
+                        args=[video_capture, input_queue, frame_skipping])
     put_thread.start()
 
     # run models
     predict_threads = []
-    for i in range(cfg['pipeline']['num_workers']):
+    for i in range(ppl_cfg['num_workers']):
         predict_thread = Thread(
             target=predict_image, 
             args=(input_queue, output_dict, detector, lmk_model, recognizer)
@@ -108,12 +112,13 @@ def predict_video(video_path_or_cam):
 
     # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>> display >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
     start = time.time()
-    time_interval = 1 / fps 
+    time_interval = 1 / fps * frame_skipping
     frame_index = 0
-    while frame_index != total:
+    end_frame_index = (total // frame_skipping + 1) * frame_skipping
+    while frame_index != end_frame_index:
         frame_start = time.time()
         while frame_index not in output_dict:
-            time.sleep(cfg['pipeline']['wait_time'])
+            time.sleep(ppl_cfg['wait_time'])
         dst = output_dict.pop(frame_index)
 
         duration = max(time.time() - frame_start, time_interval)
@@ -123,12 +128,12 @@ def predict_video(video_path_or_cam):
         cv2.imshow("capture", dst)
         cv2.waitKey(1)
 
-        frame_index += 1
+        frame_index += frame_skipping
 
     time_spent = time.time() - start
     avg_fps = total / time_spent
-    qml = cfg['pipeline']['queue_max_length']
-    nw = cfg['pipeline']['num_workers']
+    qml = ppl_cfg['queue_max_length']
+    nw = ppl_cfg['num_workers']
     print(f"max_length={qml} workers={nw} frames={total} time={time_spent:.1f} "
           f"fps={avg_fps:.1f}")
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
