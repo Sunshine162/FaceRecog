@@ -23,3 +23,9 @@ python main.py videos/Trump3.mp4
 - [ ] ONNX model optimization.
 - [ ] implemet face tracing.
 - [ ] implemet openvino.
+
+
+## Reference
+
+- [https://github.com/610265158/Peppa_Pig_Face_Landmark](https://github.com/610265158/Peppa_Pig_Face_Landmark)
+- [https://github.com/xuexingyu24/MobileFaceNet_Tutorial_Pytorch](https://github.com/xuexingyu24/MobileFaceNet_Tutorial_Pytorch)
