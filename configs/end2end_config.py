@@ -73,6 +73,6 @@ cfg = {
         'queue_max_length': 24,
         'num_workers': 16,
         'wait_time': 1e-4,
-        'frame_skipping': 2,  # process 1 frame every 3 frames
+        'frame_skipping': 2,  # process 1 frame every 2 frames
     }
 }
