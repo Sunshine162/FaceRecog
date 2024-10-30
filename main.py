@@ -1,3 +1,4 @@
+from math import ceil
 from queue import Queue
 import time
 from threading import Thread
@@ -75,6 +76,52 @@ def predict_image(input_queue, output_dict, detector, lmk_model, recognizer):
         output_dict[frame_index] = dst
 
 
+
+def predict_image_new(input_queue, output_dict, detector, lmk_model, recognizer):
+    global END_OF_VIDEO
+    global PREDICT_FINISH
+
+    while not PREDICT_FINISH:
+        frame_index, src = input_queue.get(block=True)
+        if frame_index == END_OF_VIDEO:
+            PREDICT_FINISH = True
+            output_dict[frame_index] = None
+            break
+
+        det_results = detector.predict(src[None, ...])
+        det_boxes, det_confs, det_flags = det_results[0]
+        det_boxes = det_boxes[det_flags]
+
+        five_points, lmk_confs, lmk_flags = lmk_model.predict(src, det_boxes)
+
+        pred_names, rec_confs, rec_flags = \
+            recognizer.predict(src, det_boxes[lmk_flags], five_points)
+
+        det_boxes = det_boxes.astype(np.int64).tolist()
+        five_points = five_points.astype(np.int64).tolist()
+        dst = src.copy()
+        radius = max(3, int(max(dst.shape[:2]) / 1000))
+
+        i = 0
+        for det_box, points, lmk_flag in zip(det_boxes, five_points, lmk_flags):
+            # draw detection boundding box
+            cv2.rectangle(dst, det_box[0:2], det_box[2:4], (0, 255, 0))
+
+            if not lmk_flag:
+                continue
+
+            # draw five key points
+            for point in points:
+                cv2.circle(dst, point, radius, (0, 0, 255), -1)
+            
+            pred_name = str(pred_names[i]) if rec_flags[i] else 'Unknown'
+            cv2.putText(dst, pred_name, det_box[:2], None, 1, (254, 241, 2), 2)
+            
+            i += 1
+        
+        output_dict[frame_index] = dst
+
+
 def predict_video(video_path_or_cam):
     # load models
     detector = Yolov5OnnxDetector(cfg['detector'])
@@ -104,7 +151,7 @@ def predict_video(video_path_or_cam):
     predict_threads = []
     for i in range(ppl_cfg['num_workers']):
         predict_thread = Thread(
-            target=predict_image, 
+            target=predict_image_new, 
             args=(input_queue, output_dict, detector, lmk_model, recognizer)
         )
         predict_thread.start()
@@ -114,7 +161,7 @@ def predict_video(video_path_or_cam):
     start = time.time()
     time_interval = 1 / fps * frame_skipping
     frame_index = 0
-    end_frame_index = (total // frame_skipping + 1) * frame_skipping
+    end_frame_index = ceil(total / frame_skipping) * frame_skipping
     while frame_index != end_frame_index:
         frame_start = time.time()
         while frame_index not in output_dict:

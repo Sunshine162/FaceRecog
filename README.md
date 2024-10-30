@@ -14,8 +14,6 @@ python main.py videos/Trump3.mp4
 ```
 
 ## Feature
-
-
 - [X] implement single ONNX end2end demo of face detect->landmark->recognize.
 - [X] inference with multiple threads.
 - [X] implement frame skipping.
