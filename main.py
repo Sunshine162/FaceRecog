@@ -5,8 +5,8 @@ from threading import Thread
 
 import cv2
 import numpy as np
+from yaml import safe_load
 
-from configs.end2end_config import cfg
 from inferencer import Yolov5OnnxDetector, PeppaPigOnnxLandmark, \
                        MobileFacenetOnnxRecognizer
 
@@ -30,56 +30,12 @@ def put_frame(video_capture, input_queue, frame_skipping=1):
         frame_index += 1
 
 
-def predict_image(input_queue, output_dict, detector, lmk_model, recognizer):
+def predict_image(cfg, input_queue, output_dict, detector, lmk_model, recognizer):
     global END_OF_VIDEO
     global PREDICT_FINISH
 
-    while not PREDICT_FINISH:
-        frame_index, src = input_queue.get(block=True)
-        if frame_index == END_OF_VIDEO:
-            PREDICT_FINISH = True
-            output_dict[frame_index] = None
-            break
-
-        det_results = detector.predict(src[None, ...])
-        det_boxes, det_confs, det_flags = det_results[0]
-
-        dst = src.copy()
-        for i, det_flag in enumerate(det_flags):
-            det_box = det_boxes[i]
-            if not det_flag:
-                continue
-
-            # draw detection boundding box
-            l, t, r, b = det_box.astype(np.int64).tolist()
-            cv2.rectangle(dst, (l, t), (r, b), (0, 255, 0))
-
-            # predict landmark
-            five_points, lmk_confs, lmk_flags = lmk_model.predict(src, [det_box])
-            if not lmk_flags[0]:
-                continue
-
-            # draw five key points
-            radius = max(3, int(max(dst.shape[:2]) / 1000))
-            for point in five_points[0]:
-                point = point.astype(np.int64).tolist()
-                cv2.circle(dst, point, radius, (0, 0, 255), -1)
-            
-            # recognize face
-            pred_names, confs, flags = recognizer.predict(src, [det_box], 
-                                                          five_points)
-            pred_name = str(pred_names[0]) if flags[0] else 'Unknown'
-            cv2.putText(dst, pred_name, 
-                        det_box[:2].astype(np.int64).tolist(), None, 
-                        1, (254, 241, 2), 2)
-        
-        output_dict[frame_index] = dst
-
-
-
-def predict_image_new(input_queue, output_dict, detector, lmk_model, recognizer):
-    global END_OF_VIDEO
-    global PREDICT_FINISH
+    lmk_bs = cfg['landmark']['batch_size']
+    rec_bs = cfg['recognizer']['batch_size']
 
     while not PREDICT_FINISH:
         frame_index, src = input_queue.get(block=True)
@@ -92,10 +48,29 @@ def predict_image_new(input_queue, output_dict, detector, lmk_model, recognizer)
         det_boxes, det_confs, det_flags = det_results[0]
         det_boxes = det_boxes[det_flags]
 
-        five_points, lmk_confs, lmk_flags = lmk_model.predict(src, det_boxes)
+        five_points, lmk_confs, lmk_flags = [], [], []
+        for i in range(0, det_boxes.shape[0], lmk_bs):
+            part_five_points, part_lmk_confs, part_lmk_flags = \
+                lmk_model.predict(src, det_boxes[i : i+lmk_bs, ...])
+            five_points.append(part_five_points)
+            lmk_confs.append(part_lmk_confs)
+            lmk_flags.append(part_lmk_flags)
+        five_points = np.concatenate(five_points, axis=0)
+        lmk_confs = np.concatenate(lmk_confs, axis=0)
+        lmk_flags = np.concatenate(lmk_flags, axis=0)
 
-        pred_names, rec_confs, rec_flags = \
-            recognizer.predict(src, det_boxes[lmk_flags], five_points)
+        _det_boxes = det_boxes[lmk_flags]
+        pred_names, rec_confs, rec_flags = [], [], []
+        for i in range(0, _det_boxes.shape[0], rec_bs):
+            part_pred_names, part_rec_confs, part_rec_flags = \
+                recognizer.predict(src, _det_boxes[i : i+rec_bs, ...], 
+                                   five_points[i : i+rec_bs, ...])
+            pred_names.append(part_pred_names)
+            rec_confs.append(part_rec_confs)
+            rec_flags.append(part_rec_flags)
+        pred_names = np.concatenate(pred_names, axis=0)
+        rec_confs = np.concatenate(rec_confs, axis=0)
+        rec_flags = np.concatenate(rec_flags, axis=0)
 
         det_boxes = det_boxes.astype(np.int64).tolist()
         five_points = five_points.astype(np.int64).tolist()
@@ -122,7 +97,7 @@ def predict_image_new(input_queue, output_dict, detector, lmk_model, recognizer)
         output_dict[frame_index] = dst
 
 
-def predict_video(video_path_or_cam):
+def predict_video(video_path_or_cam, cfg):
     # load models
     detector = Yolov5OnnxDetector(cfg['detector'])
     lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
@@ -151,8 +126,8 @@ def predict_video(video_path_or_cam):
     predict_threads = []
     for i in range(ppl_cfg['num_workers']):
         predict_thread = Thread(
-            target=predict_image_new, 
-            args=(input_queue, output_dict, detector, lmk_model, recognizer)
+            target=predict_image, 
+            args=(cfg, input_queue, output_dict, detector, lmk_model, recognizer)
         )
         predict_thread.start()
         predict_threads.append(predict_thread)
@@ -192,11 +167,26 @@ def predict_video(video_path_or_cam):
         t.join()
 
 
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser("face detection and recognition")
+    parser.add_argument('-c', '--config-file',
+                        default="configs/end2end_config.yml",
+                        type=str, help="path to config file")
+    parser.add_argument('-i', '--input-video',
+                        default="videos/Trump3.mp4",
+                        # default="videos/GodofGamblers.mp4",
+                        type=str, help="path to input video")
+
+    args = parser.parse_args()
+    return args
+
+
 def main():
-    predict_video('videos/Trump3.mp4')
-    # predict_video('videos/GodofGamblers.mp4')
-    # import sys
-    # predict_video(sys.argv[1])
+    args = parse_args()
+    with open(args.config_file, 'r') as f:
+        cfg = safe_load(f)
+    predict_video(args.input_video, cfg)
 
 
 if __name__ == "__main__":

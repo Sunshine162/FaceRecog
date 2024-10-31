@@ -20,7 +20,7 @@ def transformation_from_points(points1, points2):
                      np.matrix([0., 0., 1.])])
 
 
-def face_align(img, landmark, pattern, out_size, do_crop=True):
+def face_align(img, landmark, pattern, out_size, do_crop=True, input_box=None):
     """face alignment"""
 
     if do_crop:

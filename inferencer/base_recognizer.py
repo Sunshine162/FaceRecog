@@ -12,7 +12,7 @@ class BaseRecognizer:
                                   np.float32).reshape(3, 1, 1)
         self.norm_std = np.array(recognizer_config['normalization']['std'],
                                  np.float32).reshape(3, 1, 1)
-        self.box_extend_cfg = recognizer_config['extend']
+        self.box_extend_cfg = recognizer_config.get('extend', None)
         
         self.input_crop = recognizer_config['align']['input_crop']
         self.align_pattern = np.array(
@@ -63,12 +63,15 @@ class BaseRecognizer:
 
         for det_box, one_box_five_points in zip(det_boxes, landmarks):
             # crop
-            input_box = extend_box(det_box, self.box_extend_cfg, img_size)
+            if self.input_crop and self.box_extend_cfg:
+                input_box = extend_box(det_box, self.box_extend_cfg, img_size)
+            else:
+                input_box = None
 
             # face align
             image_croped = face_align(img, one_box_five_points, 
                                       self.align_pattern, self.input_size, 
-                                      self.input_crop)
+                                      self.input_crop, input_box)
             
             # HWC -> CHW, uint8 -> float32
             image_croped = image_croped.transpose(2, 0, 1).astype(np.float32)
@@ -114,6 +117,9 @@ class BaseRecognizer:
             confs = np.clip(confs * -80 + 156, 0, 100)
             pred_names = self.names[indices]
             flags = (confs >= self.threshold)
+        
+        else:
+            raise ValueError('Unknown judge mode:', self.judge_mode)
 
         return pred_names, confs, flags
 

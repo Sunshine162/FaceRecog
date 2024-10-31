@@ -79,7 +79,7 @@ class BaseLandmark:
             five_points[i] = revert_points(five_points[i], metas[i]['input_box'])
 
         confidences = scores.mean(axis=1)
-        flags = (confidences > self.conf_threshold).tolist()
+        flags = (confidences > self.conf_threshold)
 
         return five_points, confidences, flags
         
