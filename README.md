@@ -19,9 +19,12 @@ python main.py -c configs/end2end_config.yml -i videos/Trump3.mp4
 - [X] implement frame skipping.
 - [X] implement multiple batch size for landmark inference and recognizer inference.
 - [ ] ONNX model optimization.
-- [ ] implemet face tracing.
-- [X] implemet openvino.
+- [ ] implement face tracing.
+- [X] implement openvino.
 - [ ] face detection with landmark detection
+- [ ] multiple process test
+- [ ] profile count
+- [ ] asyncio
 
 
 ## Reference
