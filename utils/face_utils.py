@@ -73,13 +73,17 @@ def extract_face_embedding(face_image_path, face_detector, lmk_detector,
     src_pad[top_start:top_start+src_h, left_start:left_start+src_w, :] = src
 
     det_results = face_detector.predict([src_pad])[0]
-    det_boxes, det_confs, det_flags = det_results
-    det_boxes = det_boxes[det_flags]
+    if len(det_results) == 3:
+        det_boxes, det_confs, det_flags = det_results
+        det_boxes = det_boxes[det_flags]
+        five_points, *_ = lmk_detector.predict(src_pad, det_boxes)
+    elif len(det_results) == 4:
+        det_boxes, det_confs, five_points, det_flags = det_results
+
     if len(det_boxes) == 0:
         raise RuntimeError("No face detected in the given image!")
     if len(det_boxes) > 1:
         raise RuntimeError("Multiple faces detected in the given image!")
 
-    five_points, lmk_scores, lmk_flags = lmk_detector.predict(src_pad, det_boxes)
     feature = face_recognizer.extract_features(src_pad, det_boxes, five_points)
     return feature.squeeze()

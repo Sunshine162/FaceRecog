@@ -27,7 +27,7 @@ class BaseRecognizer:
         self.db_feats = None
         self.db_names = None
 
-    def set_db(self, detector, lmk_model):
+    def set_db(self, detector=None, lmk_model=None):
         os.makedirs(self.db_feat_dir, exist_ok=True)
         db_feats = []
         names = []

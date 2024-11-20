@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from utils import xywh2xyxy, py_nms, revert_boxes
+from utils import xywh2xyxy, py_nms, revert_dets
 
 
 class BaseDetector:
@@ -100,42 +100,33 @@ class BaseDetector:
                 one_image_data, self.nms_threshold, self.conf_threshold)
             
             one_image_boxes = one_image_data[..., :4]
-            one_image_boxes = revert_boxes(one_image_boxes, meta['left_pad'], 
+            one_image_boxes = revert_dets(one_image_boxes, meta['left_pad'], 
                                         meta['top_pad'], meta['scale_factor'])
             one_image_scores = one_image_data[..., 4]
-
-            one_image_boxes, one_image_scores = self.filter_boxes(
-                one_image_boxes, one_image_scores)
-            one_image_flags = [True] * one_image_boxes.shape[0]
+            one_image_flags = self.check_boxes(one_image_boxes, one_image_scores)
             det_results.append((
                 one_image_boxes, one_image_scores, one_image_flags))
 
         return det_results
 
 
-    def filter_boxes(self, boxes, scores=None, sorted=True):
+    def check_boxes(self, boxes, scores, sorted=True):
         """find the top_k max bboxes, and filter the small face"""
-
+        valid_flags = np.array([False] * boxes.shape[0], np.bool_)
         if self.min_face:
             area = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
             select_index = area > self.min_face
-            if scores is not None:
-                boxes = boxes[select_index, :]
+            valid_flags[select_index] = True
         
-        if self.max_outputs:
-            if boxes.shape[0] > self.max_outputs:
-                if not sorted:
-                    descending_indices = scores.argsort()[::-1]
-                    boxes = boxes[descending_indices, :]
-                    scores = scores[descending_indices]
-                
-                boxes = boxes[:self.max_outputs, :]
-                if scores is not None:
-                    scores = scores[:self.max_outputs]
+        if self.max_outputs and boxes.shape[0] > self.max_outputs:
+            if not sorted:
+                descending_indices = scores.argsort()[::-1]
+            else:
+                descending_indices = np.arange(boxes.shape[0])
 
-        if scores is None:
-            return boxes
-        return boxes, scores
+            valid_flags[self.max_outputs:] = False
+
+        return valid_flags
 
     def predict(self, imgs):
         """predict one image by end2end"""

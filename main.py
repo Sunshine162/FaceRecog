@@ -4,6 +4,7 @@ import time
 from threading import Thread
 
 import cv2
+from munch import Munch
 import numpy as np
 from yaml import safe_load
 
@@ -34,8 +35,8 @@ def predict_image(cfg, input_queue, output_dict, detector, lmk_model, recognizer
     global END_OF_VIDEO
     global PREDICT_FINISH
 
-    lmk_bs = cfg['landmark']['batch_size']
-    rec_bs = cfg['recognizer']['batch_size']
+    lmk_bs = cfg.landmark.batch_size
+    rec_bs = cfg.recognizer.batch_size
 
     while not PREDICT_FINISH:
         frame_index, src = input_queue.get(block=True)
@@ -100,14 +101,14 @@ def predict_image(cfg, input_queue, output_dict, detector, lmk_model, recognizer
 
 def predict_video(video_path_or_cam, cfg):
     # load models
-    detector = Yolov5OnnxDetector(cfg['detector'])
-    lmk_model = PeppaPigOnnxLandmark(cfg['landmark'])
-    recognizer = MobileFacenetOnnxRecognizer(cfg['recognizer'])
+    detector = Yolov5OnnxDetector(cfg.detector)
+    lmk_model = PeppaPigOnnxLandmark(cfg.landmark)
+    recognizer = MobileFacenetOnnxRecognizer(cfg.recognizer)
     recognizer.set_db(detector, lmk_model)
 
-    ppl_cfg = cfg['pipeline']
+    ppl_cfg = cfg.pipeline
     # create input_queue for receiving frames
-    max_length = ppl_cfg['queue_max_length']
+    max_length = ppl_cfg.queue_max_length
     input_queue = Queue(maxsize=max_length)
     # create output_dict for receiving recognition result
     output_dict = {}
@@ -118,14 +119,14 @@ def predict_video(video_path_or_cam, cfg):
     total = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # read frame from video file or stream
-    frame_skipping = ppl_cfg['frame_skipping']
+    frame_skipping = ppl_cfg.frame_skipping
     put_thread = Thread(target=put_frame, 
                         args=[video_capture, input_queue, frame_skipping])
     put_thread.start()
 
     # run models
     predict_threads = []
-    for i in range(ppl_cfg['num_workers']):
+    for i in range(ppl_cfg.num_workers):
         predict_thread = Thread(
             target=predict_image, 
             args=(cfg, input_queue, output_dict, detector, lmk_model, recognizer)
@@ -141,7 +142,7 @@ def predict_video(video_path_or_cam, cfg):
     while frame_index != end_frame_index:
         frame_start = time.time()
         while frame_index not in output_dict:
-            time.sleep(ppl_cfg['wait_time'])
+            time.sleep(ppl_cfg.wait_time)
         dst = output_dict.pop(frame_index)
 
         duration = max(time.time() - frame_start, time_interval)
@@ -155,8 +156,8 @@ def predict_video(video_path_or_cam, cfg):
 
     time_spent = time.time() - start
     avg_fps = total / time_spent
-    qml = ppl_cfg['queue_max_length']
-    nw = ppl_cfg['num_workers']
+    qml = ppl_cfg.queue_max_length
+    nw = ppl_cfg.num_workers
     print(f"max_length={qml} workers={nw} frames={total} time={time_spent:.1f} "
           f"fps={avg_fps:.1f}")
     # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -186,7 +187,7 @@ def parse_args():
 def main():
     args = parse_args()
     with open(args.config_file, 'r') as f:
-        cfg = safe_load(f)
+        cfg = Munch.fromDict(safe_load(f))
     predict_video(args.input_video, cfg)
 
 

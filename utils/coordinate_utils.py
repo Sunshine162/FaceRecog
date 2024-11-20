@@ -22,21 +22,25 @@ def xywh2xyxy(boxes):
     new_boxes[..., 3] = boxes[..., 1] + boxes[..., 3] / 2  # bottom right y
     return new_boxes
 
-def revert_boxes(box, left_pad, top_pad, scale_factor):
+def revert_dets(dets, left_pad, top_pad, scale_factor):
     """revert coordinates of box to original image
 
     Args:
-        box: format is [x_left, y_top, x_right, y_bottom]
+        dets: 6D-array result for detection or 16D-array for detection and landmark
         meta: a dict like {'scale_factor': 0.5, 'left_pad': 0, 'top_pad': 200}
     
     Return:
         new_box: format is [x_left, y_top, x_right, y_bottom]
     """
 
-    box -= np.array([[left_pad, top_pad, left_pad, top_pad]])
-    box /= scale_factor
+    dets[..., 0:4] -= np.array([[left_pad, top_pad, left_pad, top_pad]])
+    dets[..., 0:4] /= scale_factor
     
-    return box
+    if dets.shape[-1] == 16:
+        dets[..., 5:15] -= np.array([[left_pad, top_pad] * 5])
+        dets[..., 5:15] /= scale_factor
+
+    return dets
 
 def revert_points(points, box):
     """convert coordinates of points
@@ -51,14 +55,16 @@ def revert_points(points, box):
     Return:
         points:  N x 2 numpy.ndarray, like [[x1, y1], [x2, y2], ...]
     """
+    assert points.shape[-1] == 2
 
     l, t, r, b = box  # left, top, right, bottom
     w = r - l
     h = b - t
-    points[:, 0] = points[:, 0] * w + l
-    points[:, 1] = points[:, 1] * h + t
+    points[..., 0] = points[..., 0] * w + l
+    points[..., 1] = points[..., 1] * h + t
 
     return points
+
 
 def extend_square_box(box, ratio, img_size, side='max'):
     """extend box to a square
