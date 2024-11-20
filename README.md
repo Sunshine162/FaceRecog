@@ -32,3 +32,4 @@ python main.py -c configs/end2end_config.yml -i videos/Trump3.mp4
 
 - [https://github.com/610265158/Peppa_Pig_Face_Landmark](https://github.com/610265158/Peppa_Pig_Face_Landmark)
 - [https://github.com/xuexingyu24/MobileFaceNet_Tutorial_Pytorch](https://github.com/xuexingyu24/MobileFaceNet_Tutorial_Pytorch)
+- [https://github.com/ifzhang/ByteTrack/tree/main/yolox/tracker](https://github.com/ifzhang/ByteTrack/tree/main/yolox/tracker)
