@@ -2,5 +2,7 @@ numpy
 opencv-python
 onnx
 onnxruntime
+scikit-learn
 scikit-image
 pyyaml
+moviepy==1.0.3

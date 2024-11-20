@@ -1,3 +1,4 @@
+import os.path as osp
 import time
 from typing import List
 
@@ -9,6 +10,7 @@ from yaml import safe_load
 
 from inferencer import Yolov5OnnxDetectorWithLandmark, MobileFacenetOnnxRecognizer
 from tracker.byte_tracker import BYTETracker
+from utils import copy_audio, draw_mosaic
 
 
 class TrackInfo:
@@ -78,7 +80,7 @@ def load_config_and_models(config_path):
     return cfg, detector, tracker, recognizer
 
 
-def draw_results(video_path, results):
+def save_results(video_path, results, save_path, preview=False):
     video_capture=cv2.VideoCapture(video_path)
     total = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
     src_fps = video_capture.get(cv2.CAP_PROP_FPS)
@@ -86,6 +88,11 @@ def draw_results(video_path, results):
     height = int(video_capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
     radius = max(3, int(max(width, height) / 1000))
     wait_time = 1 / src_fps
+
+    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+    if osp.isfile(save_path):
+        os.remove(save_path)
+    out = cv2.VideoWriter(save_path, fourcc, src_fps, (width, height))
 
     for i in tqdm(range(total), desc="Display results"):
         if i >= len(results.faces):
@@ -95,27 +102,35 @@ def draw_results(video_path, results):
 
         result = results.faces[i]
         for (track_id, index) in result:
-            # draw boundding box
             det_box = results.data[track_id].bboxes[index]
-            cv2.rectangle(img, det_box[0:2], det_box[2:4], (0, 255, 0))
+            # draw boundding box
+            # cv2.rectangle(img, det_box[0:2], det_box[2:4], (0, 255, 0))
 
+            # pt5 = results.data[track_id].keypoints[index]
             # draw five points
-            pt5 = results.data[track_id].keypoints[index]
-            for point in pt5:
-                cv2.circle(img, point, radius, (0, 0, 255), -1)
+            # for point in pt5:
+            #     cv2.circle(img, point, radius, (0, 0, 255), -1)
 
-            # draw name of recognition
             pred_name = results.data[track_id].best_name
-            if pred_name != "Unknown":
-                cv2.putText(img, pred_name, det_box[:2], None, 1, (254, 241, 2), 2)
+            # draw name of recognition
+            # if pred_name != "Unknown":
+            #     cv2.putText(img, pred_name, det_box[:2], None, 1, (254, 241, 2), 2)
+            if pred_name is None or pred_name == "Unknown":
+                draw_mosaic(img, det_box)
+            
+        out.write(img)
+                
+        if preview:
+            cv2.namedWindow("capture", 0)
+            cv2.imshow("capture", img)
+            time.sleep(wait_time)
 
-        cv2.namedWindow("capture", 0)
-        cv2.imshow("capture", img)
-        time.sleep(wait_time)
-
-        key = cv2.waitKey(1)
-        if key == ord('q'):
-            exit()
+            key = cv2.waitKey(1)
+            if key == ord('q'):
+                exit()
+    
+    # write audio
+    copy_audio(video_path, save_path)
 
 
 def predict_video(video_path, cfg, detector, tracker, recognizer):
@@ -149,10 +164,11 @@ def predict_video(video_path, cfg, detector, tracker, recognizer):
 def main():
     config_path = 'configs/end2end_config.yml'
     video_path = 'videos/Trump3.mp4'
+    save_path = 'videos/Trump3_mosaic.mp4'
 
     cfg, detector, tracker, recognizer = load_config_and_models(config_path)
     results = predict_video(video_path, cfg, detector, tracker, recognizer)
-    draw_results(video_path, results)
+    save_results(video_path, results, save_path, preview=False)
 
 
 if __name__ == "__main__":

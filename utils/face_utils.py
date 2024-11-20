@@ -1,3 +1,4 @@
+import random
 import cv2
 import numpy as np
 from skimage import transform
@@ -87,3 +88,31 @@ def extract_face_embedding(face_image_path, face_detector, lmk_detector,
 
     feature = face_recognizer.extract_features(src_pad, det_boxes, five_points)
     return feature.squeeze()
+
+
+def draw_mosaic(img, det_box, extend_ratio=1.3):
+
+    bbox_width = det_box[2] - det_box[0]
+    bbox_height = det_box[3] - det_box[1]
+    center = [(det_box[0] + det_box[2]) / 2, (det_box[1] + det_box[3]) / 2]
+    face_width, face_height = bbox_width * extend_ratio, bbox_height * extend_ratio
+    l = max(round(center[0] - face_width / 2), 0)
+    t = max(round(center[1] - face_height / 2), 0)
+    r = min(round(center[0] + face_width / 2), img.shape[1])
+    b = min(round(center[1] + face_height / 2), img.shape[0])
+
+    mosaic = img[t:b, l:r, :]
+    h, w, _ = mosaic.shape
+    size = max(4, h//5, w//5)
+
+    for i in range(0, h, size):
+        i_end = min(h, i + size)
+        for j in range(0, w, size):
+            j_end = min(w, j + size)
+            i_rand = random.randint(i, i_end - 1)
+            j_rand = random.randint(j, j_end - 1)
+            mosaic[i:i_end, j:j_end] = img[i_rand, j_rand, :]
+
+    img[t:b, l:r, :] = mosaic
+
+    return img
