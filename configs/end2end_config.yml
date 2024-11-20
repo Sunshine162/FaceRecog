@@ -63,7 +63,7 @@ recognizer:
 
 
 pipeline:
-  queue_max_length: 24
-  num_workers: 16
+  queue_max_length: 16
+  num_workers: 8
   wait_time: 0.0004
   frame_skipping: 1  # process 1 frame every 2 frames

@@ -68,9 +68,10 @@ def predict_image(cfg, input_queue, output_dict, detector, lmk_model, recognizer
             pred_names.append(part_pred_names)
             rec_confs.append(part_rec_confs)
             rec_flags.append(part_rec_flags)
-        pred_names = np.concatenate(pred_names, axis=0)
-        rec_confs = np.concatenate(rec_confs, axis=0)
-        rec_flags = np.concatenate(rec_flags, axis=0)
+        if pred_names:
+            pred_names = np.concatenate(pred_names, axis=0)
+            rec_confs = np.concatenate(rec_confs, axis=0)
+            rec_flags = np.concatenate(rec_flags, axis=0)
 
         det_boxes = det_boxes.astype(np.int64).tolist()
         five_points = five_points.astype(np.int64).tolist()
