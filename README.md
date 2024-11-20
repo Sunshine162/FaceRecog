@@ -22,6 +22,7 @@ python main.py -c configs/end2end_config.yml -i videos/Trump3.mp4
 - [X] implement face tracing.
 - [X] implement openvino.
 - [X] face detection with landmark detection
+- [X] face mosaic
 - [ ] multiple process test
 - [ ] profile count
 - [ ] asyncio
