@@ -106,8 +106,9 @@ class BaseRecognizer:
         if self.judge_mode == 'cosine':
             similarities = features @ self.db_feats
             indices = similarities.argmax(axis=1)
+            pred_names = self.names[indices]
             confs = similarities.max(axis=1)
-            flags = similarities > self.threshold
+            flags = (confs > self.threshold)
             
         elif self.judge_mode == 'L2':
             diff = features[..., None] - self.db_feats
