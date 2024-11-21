@@ -2,6 +2,7 @@ import time
 import cv2
 import numpy as np
 from munch import Munch
+from tqdm import tqdm
 from yaml import safe_load
 
 from inferencer import Yolov5OnnxDetectorWithLandmark, MobileFacenetOnnxRecognizer
@@ -15,7 +16,7 @@ def load_config_and_models(config_path):
     detector = Yolov5OnnxDetectorWithLandmark(cfg.detector)
     recognizer = MobileFacenetOnnxRecognizer(cfg.recognizer)
     tracker = BYTETracker(cfg.tracker)
-    recognizer.set_db()
+    recognizer.set_db(detector)
     return cfg, detector, tracker, recognizer
 
 
@@ -59,7 +60,6 @@ def predict_image(src, rec_info, detector, tracker, recognizer, frame_interval):
 
     rest_ids = set(rec_info)
     track_results = tracker.update(det_boxes, det_scores, keypoints)
-    print(track_results)
     update_recognition_information(rec_info, track_results, src, recognizer, frame_interval)
     for track_obj in track_results:
         det_box = track_obj.tlbr.astype(np.int64).tolist()
@@ -83,7 +83,7 @@ def predict_video(video_path, cfg, detector, tracker, recognizer):
     src_fps = video_capture.get(cv2.CAP_PROP_FPS)
     frame_interval = round(src_fps * cfg.recognizer.recognize.time_interval)
 
-    for i in range(total):
+    for i in tqdm(range(total), desc="Display results"):
         ret, src = video_capture.read()
         if not ret:
             continue

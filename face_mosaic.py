@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import time
 from typing import List
@@ -76,7 +77,7 @@ def load_config_and_models(config_path):
     detector = Yolov5OnnxDetectorWithLandmark(cfg.detector)
     recognizer = MobileFacenetOnnxRecognizer(cfg.recognizer)
     tracker = BYTETracker(cfg.tracker)
-    recognizer.set_db()
+    recognizer.set_db(detector)
     return cfg, detector, tracker, recognizer
 
 
