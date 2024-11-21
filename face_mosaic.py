@@ -130,6 +130,10 @@ def save_results(video_path, results, save_path, preview=False):
             if key == ord('q'):
                 exit()
     
+    video_capture.release()
+    out.release()
+    cv2.destroyAllWindows()
+
     # write audio
     copy_audio(video_path, save_path)
 
