@@ -9,9 +9,10 @@ class BaseRecognizer:
     def __init__(self, recognizer_config):
         self.input_size = recognizer_config['input_size']
         self.norm_mean = np.array(recognizer_config['normalization']['mean'],
-                                  np.float32).reshape(3, 1, 1)
+                                  np.float32).reshape(1, 1, 3)
         self.norm_std = np.array(recognizer_config['normalization']['std'],
-                                 np.float32).reshape(3, 1, 1)
+                                 np.float32).reshape(1, 1, 3)
+        self.channel_first = recognizer_config.channel_first
         self.box_extend_cfg = recognizer_config.get('extend', None)
         
         self.input_crop = recognizer_config['align']['input_crop']
@@ -73,11 +74,14 @@ class BaseRecognizer:
                                       self.align_pattern, self.input_size, 
                                       self.input_crop, input_box)
             
-            # HWC -> CHW, uint8 -> float32
-            image_croped = image_croped.transpose(2, 0, 1).astype(np.float32)
+            # uint8 -> float32
+            image_croped = image_croped.astype(np.float32)
 
             # normalization
             image_croped = (image_croped - self.norm_mean) / self.norm_std
+
+            if self.channel_first:
+                image_croped = image_croped.transpose(2, 0, 1)  # HWC -> CHW
 
             input_data.append(image_croped[None, ...])
 

@@ -15,14 +15,15 @@ class BaseLandmark:
                 five_point_indices: 
         """
 
-        self.input_size = landmark_config['input_size']
-        self.norm_mean = np.array(landmark_config['normalization']['mean'], 
-                                  np.float32).reshape(3, 1, 1)
-        self.norm_std = np.array(landmark_config['normalization']['std'],
-                                 np.float32).reshape(3, 1, 1)
-        self.box_extend_cfg = landmark_config['extend']
-        self.five_point_indices = landmark_config['five_point_indices']
-        self.conf_threshold = landmark_config['conf_threshold']
+        self.input_size = landmark_config.input_size
+        self.norm_mean = np.array(landmark_config.normalization.mean, 
+                                  np.float32).reshape(1, 1, 3)
+        self.norm_std = np.array(landmark_config.normalization.std,
+                                 np.float32).reshape(1, 1, 3)
+        self.channel_first = landmark_config.channel_first
+        self.box_extend_cfg = landmark_config.extend
+        self.five_point_indices = landmark_config.five_point_indices
+        self.conf_threshold = landmark_config.conf_threshold
     
     def preprocess(self, img, det_boxes):
         """data preprocess"""
@@ -39,11 +40,14 @@ class BaseLandmark:
 
             # resize
             image_croped = cv2.resize(image_croped, self.input_size)
-            # HWC -> CHW, uint8 -> float32
-            image_croped = image_croped.transpose((2, 0, 1)).astype(np.float32)
+            # uint8 -> float32
+            image_croped = image_croped.astype(np.float32)
 
             # normalization
             image_croped = (image_croped - self.norm_mean) / self.norm_std
+
+            if self.channel_first:
+                image_croped = image_croped.transpose(2, 0, 1)  # HWC -> CHW
 
             input_data.append(image_croped[None, ...])
             metas.append({'input_box': input_box})

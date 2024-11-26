@@ -104,7 +104,7 @@ def predict_video(video_path, cfg, detector, tracker, recognizer):
 
 
 def main():
-    cfg, detector, tracker, recognizer = load_config_and_models('configs/end2end_config.yml')
+    cfg, detector, tracker, recognizer = load_config_and_models('configs/onnx_end2end_config.yml')
     predict_video('videos/Trump3.mp4', cfg, detector, tracker, recognizer)
 
 

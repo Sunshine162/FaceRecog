@@ -10,7 +10,7 @@ pip install -r requirements.txt
 
 ## Example
 ```bash
-python main.py -c configs/end2end_config.yml -i videos/Trump3.mp4
+python main.py -c configs/onnx_end2end_config.yml -i videos/Trump3.mp4
 ```
 
 ## Feature

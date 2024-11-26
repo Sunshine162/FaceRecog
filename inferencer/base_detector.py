@@ -18,15 +18,16 @@ class BaseDetector:
                 max_outputs: 
         """
 
-        self.input_size = detector_config['input_size']
-        self.norm_mean = np.array(detector_config['normalization']['mean'], 
-                                  np.float32).reshape(3, 1, 1)
-        self.norm_std = np.array(detector_config['normalization']['std'], 
-                                 np.float32).reshape(3, 1, 1)
-        self.conf_threshold = detector_config['conf_threshold']
-        self.nms_threshold = detector_config['nms_threshold']
-        self.min_face = detector_config['min_face']
-        self.max_outputs = detector_config['max_outputs']
+        self.input_size = detector_config.input_size
+        self.norm_mean = np.array(detector_config.normalization.mean, 
+                                  np.float32).reshape(1, 1, 3)
+        self.norm_std = np.array(detector_config.normalization.std, 
+                                 np.float32).reshape(1, 1, 3)
+        self.channel_first = detector_config.channel_first
+        self.conf_threshold = detector_config.conf_threshold
+        self.nms_threshold = detector_config.nms_threshold
+        self.min_face = detector_config.min_face
+        self.max_outputs = detector_config.max_outputs
     
     def preprocess(self, imgs):
         """convert raw image to input data of model.
@@ -58,11 +59,14 @@ class BaseDetector:
             img = cv2.copyMakeBorder(img, top, bottom, 
                 left, right, cv2.BORDER_CONSTANT, value=(0, 0, 0))  # add border
 
-            # HWC -> CHW, uint8 -> float32
-            img = img.transpose(2, 0, 1).astype(np.float32)
+            # uint8 -> float32
+            img = img.astype(np.float32)
 
             # normalization
             img = (img - self.norm_mean) / self.norm_std
+
+            if self.channel_first:
+                img = img.transpose(2, 0, 1)  # HWC -> CHW
 
             input_data.append(np.expand_dims(img, axis=0))
             metas.append(dict(
