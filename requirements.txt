@@ -6,6 +6,7 @@ scikit-learn
 scikit-image
 pyyaml
 moviepy==1.0.3
+munch
 lap
 cython
 cython_bbox
