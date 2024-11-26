@@ -9,8 +9,8 @@ class Yolov3TFLiteDetector(BaseDetector):
         interpreter = tf.lite.Interpreter(detector_config.model_path)
         interpreter.allocate_tensors()
         self.interpreter = interpreter
-        self.input_details = emotion_model_tflite.get_input_details()
-        self.output_details = emotion_model_tflite.get_output_details()
+        self.input_details = interpreter.get_input_details()
+        self.output_details = interpreter.get_output_details()
         assert len(self.input_details) == 1
         self.input_name = self.input_details[0]['index']
         self.output_names = [o['index'] for o in self.output_details]
