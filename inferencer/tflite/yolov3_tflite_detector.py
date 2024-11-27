@@ -35,9 +35,6 @@ class Yolov3TFLiteDetector(BaseDetector):
         """
         assert len(output_data) == 2
         bboxes, scores = output_data
-
-        in_w, in_h = self.input_size
-        bboxes *= np.array([[[in_w, in_h, in_w, in_h]]], np.float32)
         bboxes = xywh2xyxy(bboxes)
 
         det_results = []
